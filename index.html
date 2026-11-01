@@ -231,10 +231,19 @@ select{max-width:100%; text-overflow:ellipsis}
   font:700 2.2cqw var(--f-mono);
   padding:2px 4px;
   border-radius:4px;
-  background:#00c8c8;
   color:#fff;
   box-shadow:0 1px 4px #0006;
 }
+
+/* Couleurs des catégories */
+.move-badge.brilliant{background:#00C8C8}
+.move-badge.best{background:#27834A}
+.move-badge.excellent{background:#48A85C}
+.move-badge.verygood{background:#174A85}
+.move-badge.good{background:#245B36}
+.move-badge.inaccuracy{background:#D6A500}
+.move-badge.mistake{background:#E87524}
+.move-badge.blunder{background:#D52E35}
 .pc.w{color:#fbfbf8; text-shadow:0 0 1px #000,0 0 2px #000,0 1px 2px #000}
 .pc.b{color:#161a18; text-shadow:0 0 1px #fff,0 0 1px #fff}
 .co{position:absolute; font:600 2.3cqw var(--f-mono); font-style:normal; color:var(--ink); opacity:.6}
@@ -828,8 +837,27 @@ function makeLogic(core){
   'use strict';
   var LOW=300;
   var NAME={1:'un pion',2:'un cavalier',3:'un fou',4:'une tour',5:'une dame',6:'le roi'};
-  var CLS_NAME={brilliant:'Coup brillant',best:'Meilleur coup',excellent:'Excellent',good:'Bon coup',inaccuracy:'Imprécision',mistake:'Erreur',blunder:'Gaffe'};
-  var SYM={brilliant:'!!',best:'★',excellent:'!',good:'✓',inaccuracy:'?!',mistake:'?',blunder:'??'};
+var CLS_NAME={
+  brilliant:'Coup brillant',
+  best:'Meilleur coup',
+  excellent:'Excellent',
+  verygood:'Très bon coup',
+  good:'Bon coup',
+  inaccuracy:'Imprécision',
+  mistake:'Erreur',
+  blunder:'Gaffe'
+};
+
+var SYM={
+  brilliant:'!!',
+  best:'★',
+  excellent:'👍',
+  verygood:'✓',
+  good:'✓',
+  inaccuracy:'?!',
+  mistake:'?',
+  blunder:'??'
+};
   var brilliantCache={};
 
   function isBrilliant(game,positions,p){
@@ -942,26 +970,32 @@ function makeLogic(core){
   }
 
   // positions[i] : évaluation de fens[i] ; renvoie l'analyse du coup p (1..N) ou null
-  function moveInfo(game,positions,p){
-    var a=positions[p-1], b=positions[p], pl=game.plies[p-1], sgn, wl, cls;
-    if(!a||!b) return null;
-    sgn=pl.color==='w'?1:-1;
-    wl=(a.best&&a.best===pl.uci)?0:Math.max(0,sgn*(winPct(a.ev)-winPct(b.ev)));
-    cls=(a.best&&a.best===pl.uci)?'best':wl<2?'excellent':wl<10?'good':wl<20?'inaccuracy':wl<30?'mistake':'blunder';
-    if(cls==='best'&&isBrilliant(game,positions,p)) cls='brilliant';
-    return {cls:cls,loss:wl,accuracy:clamp(103.1668*Math.exp(-0.04354*wl)-3.1669,0,100)};
+ function moveInfo(game,positions,p){
+  var a=positions[p-1], b=positions[p], pl=game.plies[p-1], sgn, wl, cls;
+  if(!a||!b) return null;
+  sgn=pl.color==='w'?1:-1;
+  wl=(a.best&&a.best===pl.uci)?0:Math.max(0,sgn*(winPct(a.ev)-winPct(b.ev)));
+  cls=(a.best&&a.best===pl.uci)?'best':
+  wl<2?'excellent':
+  wl<5?'verygood':
+  wl<10?'good':
+  wl<20?'inaccuracy':
+  wl<30?'mistake':'blunder';
+  if(cls==='best'&&isBrilliant(game,positions,p)) cls='brilliant';
+  return {cls:cls,loss:wl,accuracy:clamp(103.1668*Math.exp(-0.04354*wl)-3.1669,0,100)};
+}
+
+function sideSummary(game,positions,color){
+  var cnt={brilliant:0,best:0,excellent:0,good:0,inaccuracy:0,mistake:0,blunder:0}, acc=0, n=0, worst=[], p, mi, pl;
+  for(p=1;p<=game.plies.length;p++){
+    pl=game.plies[p-1]; if(pl.color!==color) continue;
+    mi=moveInfo(game,positions,p); if(!mi) continue;
+    cnt[mi.cls]++; acc+=mi.accuracy; n++;
+    if(mi.cls==='inaccuracy'||mi.cls==='mistake'||mi.cls==='blunder') worst.push({p:p,loss:mi.loss,cls:mi.cls});
   }
-  function sideSummary(game,positions,color){
-    var cnt={brilliant:0,best:0,excellent:0,good:0,inaccuracy:0,mistake:0,blunder:0}, acc=0, n=0, worst=[], p, mi, pl;
-    for(p=1;p<=game.plies.length;p++){
-      pl=game.plies[p-1]; if(pl.color!==color) continue;
-      mi=moveInfo(game,positions,p); if(!mi) continue;
-      cnt[mi.cls]++; acc+=mi.accuracy; n++;
-      if(mi.cls==='inaccuracy'||mi.cls==='mistake'||mi.cls==='blunder') worst.push({p:p,loss:mi.loss,cls:mi.cls});
-    }
-    worst.sort(function(x,y){ return y.loss-x.loss; });
-    return {cnt:cnt,accuracy:n?acc/n:null,n:n,worst:worst.slice(0,3)};
-  }
+  worst.sort(function(x,y){ return y.loss-x.loss; });
+  return {cnt:cnt,accuracy:n?acc/n:null,n:n,worst:worst.slice(0,3)};
+}
 
   /* ---------- le coach ---------- */
   function features(fen,uci){
@@ -1240,14 +1274,14 @@ function makeLogic(core){
     }
     cells.sort(function(a,b){ return flip?(a.r-b.r)||(b.f-a.f):(b.r-a.r)||(a.f-b.f); });
     cells.forEach(function(c,n){
-      var name='abcdefgh'.charAt(c.f)+(c.r+1), cls='sq '+(((c.f+c.r)%2===0)?'d':'l')+(hl.indexOf(name)>=0?' hl':''), pc='', co='';
+     var name='abcdefgh'.charAt(c.f)+(c.r+1), cls='sq '+(((c.f+c.r)%2===0)?'d':'l')+(hl.indexOf(name)>=0?' hl':''), pc='', co='', badgeHtml='';
       if(c.p) pc='<span class="pc '+(c.p===c.p.toUpperCase()?'w':'b')+'">'+GLYPH[core.LET.indexOf(c.p.toUpperCase())]+'</span>';
       if(moveBadge&&moveBadge.square===name){
-  pc+='<span class="move-badge">'+moveBadge.text+'</span>';
+badgeHtml='<span class="move-badge '+moveBadge.cls+'">'+moveBadge.text+'</span>';
 }
       if(n%8===0) co+='<i class="co r">'+(c.r+1)+'</i>';
       if(n>=56) co+='<i class="co f">'+'abcdefgh'.charAt(c.f)+'</i>';
-      out+='<div class="'+cls+'">'+pc+co+'</div>';
+      out+='<div class="'+cls+'">'+pc+badgeHtml+co+'</div>';
     });
     $('board').innerHTML=out;
   }
@@ -1267,8 +1301,11 @@ function makeLogic(core){
     var moveBadge=null;
 if(lastPly>=1){
   var info=L.moveInfo(g,S.positions,lastPly);
- if(info) moveBadge={square:S.before?pl.from:pl.to,text:info.cls==='brilliant'?'!!':info.cls.toUpperCase()};
-}
+if(info) moveBadge={
+  square:S.before?pl.from:pl.to,
+  text:L.SYM[info.cls],
+  cls:info.cls
+};
 drawBoard(fen,hl,moveBadge);
     if(pos&&pos.best) ar+=arrow(pos.best,'best');
     if(S.before&&S.idx>=1){ played=g.plies[S.idx-1]; if(!pos||pos.best!==played.uci) ar+=arrow(played.uci,'played'); }
