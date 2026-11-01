@@ -1298,14 +1298,15 @@ badgeHtml='<span class="move-badge '+moveBadge.cls+'">'+moveBadge.text+'</span>'
     if(!S.game) return;
     var g=S.game, d=dispIdx(), pos=S.positions[d], fen=g.fens[d], lastPly=S.before?S.idx-1:S.idx, hl=[], pl, ar='', cap, pct, played;
     if(lastPly>=1){ pl=g.plies[lastPly-1]; hl=[pl.from,pl.to]; }
-    var moveBadge=null;
+   var moveBadge=null;
 if(lastPly>=1){
   var info=L.moveInfo(g,S.positions,lastPly);
-if(info) moveBadge={
-  square:S.before?pl.from:pl.to,
-  text:L.SYM[info.cls],
-  cls:info.cls
-};
+  if(info) moveBadge={
+    square:S.before?pl.from:pl.to,
+    text:L.SYM[info.cls],
+    cls:info.cls
+  };
+}
 drawBoard(fen,hl,moveBadge);
     if(pos&&pos.best) ar+=arrow(pos.best,'best');
     if(S.before&&S.idx>=1){ played=g.plies[S.idx-1]; if(!pos||pos.best!==played.uci) ar+=arrow(played.uci,'played'); }
