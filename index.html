@@ -222,7 +222,19 @@ select{max-width:100%; text-overflow:ellipsis}
 .sq{position:relative; display:flex; align-items:center; justify-content:center; font-size:10.5cqw; line-height:1}
 .sq.l{background:var(--sq-l)}
 .sq.d{background:var(--sq-d)}
-.sq.hl{box-shadow:inset 0 0 0 100px var(--hl)}
+.sq.hl{box-shadow:inset 0 0 0 100px var(--hl)}  
+.move-badge{
+  position:absolute;
+  top:2%;
+  right:2%;
+  z-index:5;
+  font:700 2.2cqw var(--f-mono);
+  padding:2px 4px;
+  border-radius:4px;
+  background:#00c8c8;
+  color:#fff;
+  box-shadow:0 1px 4px #0006;
+}
 .pc.w{color:#fbfbf8; text-shadow:0 0 1px #000,0 0 2px #000,0 1px 2px #000}
 .pc.b{color:#161a18; text-shadow:0 0 1px #fff,0 0 1px #fff}
 .co{position:absolute; font:600 2.3cqw var(--f-mono); font-style:normal; color:var(--ink); opacity:.6}
@@ -245,7 +257,7 @@ select{max-width:100%; text-overflow:ellipsis}
 #cbody{display:flex; flex-direction:column; gap:8px; max-width:62ch}
 .c-best{color:var(--c-best)} .c-excellent{color:var(--c-excellent)} .c-good{color:var(--c-good)}
 .c-inaccuracy{color:var(--c-inaccuracy)} .c-mistake{color:var(--c-mistake)} .c-blunder{color:var(--c-blunder)}
-.c-brilliant{color:#c49a4a}
+.c-brilliant{color:#00c8c8}
 
 .tablewrap{max-height:320px; overflow:auto; border:1px solid var(--line); border-radius:6px; position:relative}
 table{border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums}
@@ -1216,7 +1228,7 @@ function makeLogic(core){
     if(!(k in sanCache)){ f=L.features(fen,uci); sanCache[k]=f?f.san:uci; }
     return sanCache[k];
   }
-  function drawBoard(fen,hl){
+  function drawBoard(fen,hl,moveBadge){
     var rows=fen.split(' ')[0].split('/'), cells=[], r, f, ri, ch, fi, flip=S.flip, out='';
     for(ri=0;ri<8;ri++){
       fi=0;
@@ -1230,6 +1242,9 @@ function makeLogic(core){
     cells.forEach(function(c,n){
       var name='abcdefgh'.charAt(c.f)+(c.r+1), cls='sq '+(((c.f+c.r)%2===0)?'d':'l')+(hl.indexOf(name)>=0?' hl':''), pc='', co='';
       if(c.p) pc='<span class="pc '+(c.p===c.p.toUpperCase()?'w':'b')+'">'+GLYPH[core.LET.indexOf(c.p.toUpperCase())]+'</span>';
+      if(moveBadge&&moveBadge.square===name){
+  pc+='<span class="move-badge">'+moveBadge.text+'</span>';
+}
       if(n%8===0) co+='<i class="co r">'+(c.r+1)+'</i>';
       if(n>=56) co+='<i class="co f">'+'abcdefgh'.charAt(c.f)+'</i>';
       out+='<div class="'+cls+'">'+pc+co+'</div>';
@@ -1249,7 +1264,12 @@ function makeLogic(core){
     if(!S.game) return;
     var g=S.game, d=dispIdx(), pos=S.positions[d], fen=g.fens[d], lastPly=S.before?S.idx-1:S.idx, hl=[], pl, ar='', cap, pct, played;
     if(lastPly>=1){ pl=g.plies[lastPly-1]; hl=[pl.from,pl.to]; }
-    drawBoard(fen,hl);
+    var moveBadge=null;
+if(lastPly>=1){
+  var info=L.moveInfo(g,S.positions,lastPly);
+ if(info) moveBadge={square:S.before?pl.from:pl.to,text:info.cls==='brilliant'?'!!':info.cls.toUpperCase()};
+}
+drawBoard(fen,hl,moveBadge);
     if(pos&&pos.best) ar+=arrow(pos.best,'best');
     if(S.before&&S.idx>=1){ played=g.plies[S.idx-1]; if(!pos||pos.best!==played.uci) ar+=arrow(played.uci,'played'); }
     $('arrows').innerHTML=ar;
